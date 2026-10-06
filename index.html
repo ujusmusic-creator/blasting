@@ -1,0 +1,2022 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>WA Tagihan Listrik Pro</title>
+<!-- SheetJS lokal (dicopy dari node_modules saat build) -->
+<script src="xlsx.full.min.js"></script>
+
+<style>
+/* ============================================================
+   VARIABEL & RESET
+   ============================================================ */
+:root {
+  --pln-blue: #003d82;
+  --pln-blue-mid: #0055b3;
+  --pln-blue-light: #1a7fe8;
+  --pln-yellow: #f5a623;
+  --pln-yellow-dark: #d4891a;
+  --white: #ffffff;
+  --gray-50: #f8fafc;
+  --gray-100: #f1f5f9;
+  --gray-200: #e2e8f0;
+  --gray-300: #cbd5e1;
+  --gray-500: #64748b;
+  --gray-700: #334155;
+  --gray-900: #0f172a;
+  --green: #16a34a;
+  --green-light: #dcfce7;
+  --red: #dc2626;
+  --red-light: #fee2e2;
+  --wa-green: #25d366;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.12);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.15);
+  --radius: 10px;
+  --radius-sm: 6px;
+  --transition: 0.2s ease;
+}
+
+/* Dark mode variables */
+[data-theme="dark"] {
+  --white: #1e293b;
+  --gray-50: #0f172a;
+  --gray-100: #1e293b;
+  --gray-200: #334155;
+  --gray-300: #475569;
+  --gray-500: #94a3b8;
+  --gray-700: #cbd5e1;
+  --gray-900: #f1f5f9;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--gray-50);
+  color: var(--gray-900);
+  min-height: 100vh;
+  transition: background var(--transition), color var(--transition);
+  font-size: 14px;
+}
+
+/* ============================================================
+   LOADING OVERLAY
+   ============================================================ */
+#loadingOverlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 9999;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  backdrop-filter: blur(3px);
+}
+#loadingOverlay.active { display: flex; }
+.spinner {
+  width: 52px; height: 52px;
+  border: 4px solid rgba(255,255,255,0.2);
+  border-top-color: var(--pln-yellow);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#loadingText { color: #fff; font-size: 15px; font-weight: 500; }
+
+/* ============================================================
+   HEADER / NAVBAR
+   ============================================================ */
+header {
+  background: linear-gradient(135deg, var(--pln-blue) 0%, var(--pln-blue-mid) 100%);
+  color: #fff;
+  padding: 0 20px;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: var(--shadow-md);
+}
+.header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  gap: 12px;
+}
+.logo {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 17px; font-weight: 700; letter-spacing: 0.3px;
+}
+.logo-icon {
+  width: 36px; height: 36px;
+  background: var(--pln-yellow);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.logo-text span { color: var(--pln-yellow); }
+.header-actions { display: flex; align-items: center; gap: 8px; }
+.btn-icon {
+  background: rgba(255,255,255,0.15);
+  border: none; color: #fff;
+  width: 36px; height: 36px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  transition: background var(--transition);
+}
+.btn-icon:hover { background: rgba(255,255,255,0.28); }
+
+/* ============================================================
+   MAIN LAYOUT
+   ============================================================ */
+main { max-width: 1400px; margin: 0 auto; padding: 20px 16px 40px; }
+
+/* ============================================================
+   SECTION TITLES
+   ============================================================ */
+.section-title {
+  font-size: 15px; font-weight: 700; color: var(--pln-blue-mid);
+  margin-bottom: 12px;
+  display: flex; align-items: center; gap: 7px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--gray-200);
+}
+[data-theme="dark"] .section-title { color: var(--pln-yellow); border-color: var(--gray-200); }
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+.card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--gray-200);
+  padding: 16px;
+  margin-bottom: 16px;
+  transition: box-shadow var(--transition), background var(--transition);
+}
+.card:hover { box-shadow: var(--shadow-md); }
+
+/* ============================================================
+   DASHBOARD STATS
+   ============================================================ */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.stat-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--gray-200);
+  padding: 14px 16px;
+  position: relative; overflow: hidden;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.stat-card::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 4px;
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+.stat-card.blue::before   { background: var(--pln-blue-light); }
+.stat-card.yellow::before { background: var(--pln-yellow); }
+.stat-card.green::before  { background: var(--green); }
+.stat-card.red::before    { background: var(--red); }
+.stat-card.purple::before { background: #7c3aed; }
+
+.stat-icon {
+  font-size: 22px; margin-bottom: 8px;
+  display: block;
+}
+.stat-label { font-size: 11px; color: var(--gray-500); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-value { font-size: 22px; font-weight: 800; color: var(--gray-900); margin-top: 2px; line-height: 1.1; }
+.stat-sub { font-size: 11px; color: var(--gray-500); margin-top: 3px; }
+
+/* Progress bar */
+.progress-bar-wrap { background: var(--gray-200); border-radius: 99px; height: 6px; margin-top: 8px; }
+.progress-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--green), #22c55e); transition: width 0.5s ease; }
+
+/* ============================================================
+   UPLOAD ZONA
+   ============================================================ */
+.upload-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+@media (max-width: 640px) { .upload-grid { grid-template-columns: 1fr; } }
+
+.upload-zone {
+  border: 2px dashed var(--gray-300);
+  border-radius: var(--radius);
+  padding: 20px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition);
+  background: var(--gray-50);
+  position: relative;
+}
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--pln-blue-light);
+  background: #eff6ff;
+}
+[data-theme="dark"] .upload-zone:hover,
+[data-theme="dark"] .upload-zone.dragover { background: #1e3a5f; }
+
+.upload-zone input[type=file] {
+  position: absolute; inset: 0;
+  opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.upload-icon { font-size: 28px; margin-bottom: 6px; }
+.upload-title { font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 3px; }
+.upload-sub { font-size: 11px; color: var(--gray-500); }
+.upload-badge {
+  display: inline-block;
+  background: var(--green); color: #fff;
+  font-size: 10px; font-weight: 600;
+  padding: 2px 7px; border-radius: 99px;
+  margin-top: 6px;
+}
+
+/* ============================================================
+   INPUT MANUAL
+   ============================================================ */
+.manual-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.manual-input {
+  padding: 9px 10px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: var(--white); color: var(--gray-900);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--transition);
+  width: 100%;
+}
+.manual-input:focus { border-color: var(--pln-blue-light); }
+.manual-err { font-size: 11px; color: var(--red); min-height: 14px; margin-bottom: 6px; }
+.manual-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 99px;
+  font-size: 10px; font-weight: 700;
+  background: #ede9fe; color: #6d28d9;
+}
+[data-theme="dark"] .manual-badge { background: #4c1d9522; }
+
+/* ============================================================
+   TOOLBAR (Search, Filter, Export)
+   ============================================================ */
+.toolbar {
+  display: flex; flex-wrap: wrap;
+  gap: 10px; align-items: center;
+  margin-bottom: 14px;
+}
+.search-wrap {
+  flex: 1; min-width: 180px;
+  position: relative;
+}
+.search-wrap input {
+  width: 100%; padding: 9px 12px 9px 36px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: var(--white); color: var(--gray-900);
+  font-size: 13px;
+  transition: border-color var(--transition);
+  outline: none;
+}
+.search-wrap input:focus { border-color: var(--pln-blue-light); }
+.search-icon {
+  position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+  color: var(--gray-500); font-size: 14px; pointer-events: none;
+}
+.filter-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn-filter {
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--gray-200);
+  background: var(--white); color: var(--gray-700);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all var(--transition);
+}
+.btn-filter:hover { border-color: var(--pln-blue-light); color: var(--pln-blue-light); }
+.btn-filter.active { background: var(--pln-blue); color: #fff; border-color: var(--pln-blue); }
+.btn-filter.filter-lunas.active    { background: var(--green); border-color: var(--green); }
+.btn-filter.filter-belum.active    { background: var(--red); border-color: var(--red); }
+
+/* Main buttons */
+.btn {
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  border: none; cursor: pointer;
+  font-size: 12px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.btn-primary { background: var(--pln-blue); color: #fff; }
+.btn-primary:hover { background: var(--pln-blue-mid); }
+.btn-success { background: var(--green); color: #fff; }
+.btn-success:hover { background: #15803d; }
+.btn-warning { background: var(--pln-yellow); color: #fff; }
+.btn-warning:hover { background: var(--pln-yellow-dark); }
+.btn-wa { background: var(--wa-green); color: #fff; font-size: 11px; padding: 6px 10px; }
+.btn-wa:hover { background: #20ba58; }
+.btn-danger-outline {
+  background: transparent;
+  border: 1.5px solid var(--red); color: var(--red);
+}
+.btn-danger-outline:hover { background: var(--red); color: #fff; }
+.btn-sm { padding: 5px 10px; font-size: 11px; }
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+.table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--gray-200);
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+table {
+  width: 100%; border-collapse: collapse;
+  font-size: 12.5px;
+  min-width: 900px;
+}
+thead tr {
+  background: linear-gradient(135deg, var(--pln-blue) 0%, var(--pln-blue-mid) 100%);
+}
+thead th {
+  color: #fff; font-weight: 600; font-size: 11px;
+  padding: 11px 10px; text-align: left;
+  white-space: nowrap; letter-spacing: 0.3px;
+  position: sticky; top: 0;
+  user-select: none; cursor: pointer;
+}
+thead th:hover { background: rgba(255,255,255,0.1); }
+thead th .sort-icon { font-size: 9px; opacity: 0.7; margin-left: 3px; }
+tbody tr {
+  border-bottom: 1px solid var(--gray-200);
+  transition: background var(--transition);
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--gray-100); }
+tbody tr.row-lunas { background: #f0fdf4; }
+tbody tr.row-lunas:hover { background: #dcfce7; }
+tbody tr.row-wa-sent { background: #f0fdf4 !important; }
+[data-theme="dark"] tbody tr.row-lunas { background: #14532d22; }
+td { padding: 9px 10px; color: var(--gray-700); vertical-align: middle; }
+td.no-wrap { white-space: nowrap; }
+
+/* ============================================================
+   BADGE / STATUS
+   ============================================================ */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 99px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+.badge-lunas   { background: var(--green-light); color: var(--green); }
+.badge-belum   { background: var(--red-light); color: var(--red); }
+.badge-wa-sent { background: #d1fae5; color: #065f46; font-size: 10px; }
+
+.btn-toggle {
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  border: none; cursor: pointer;
+  font-size: 10.5px; font-weight: 600;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.btn-toggle.belum { background: var(--red-light); color: var(--red); }
+.btn-toggle.belum:hover { background: var(--red); color: #fff; }
+.btn-toggle.lunas { background: var(--green-light); color: var(--green); }
+.btn-toggle.lunas:hover { background: #dcfce7; }
+
+/* ============================================================
+   TEMPLATE EDITOR
+   ============================================================ */
+.template-area {
+  width: 100%;
+  font-family: 'Courier New', monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  padding: 12px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: var(--gray-50);
+  color: var(--gray-900);
+  resize: vertical;
+  min-height: 200px;
+  outline: none;
+  transition: border-color var(--transition);
+}
+.template-area:focus { border-color: var(--pln-blue-light); }
+.placeholder-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chip {
+  padding: 3px 10px;
+  background: var(--pln-blue);
+  color: #fff; border: none;
+  border-radius: 99px;
+  font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: background var(--transition);
+}
+.chip:hover { background: var(--pln-blue-mid); }
+
+/* ============================================================
+   PAGINATION
+   ============================================================ */
+.pagination {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px;
+  padding: 12px 16px;
+  background: var(--white);
+  border-top: 1px solid var(--gray-200);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+.pag-info { font-size: 12px; color: var(--gray-500); }
+.pag-btns { display: flex; gap: 4px; flex-wrap: wrap; }
+.pag-btn {
+  min-width: 32px; height: 32px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--gray-200);
+  background: var(--white); color: var(--gray-700);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all var(--transition);
+}
+.pag-btn:hover:not(:disabled) { border-color: var(--pln-blue); color: var(--pln-blue); }
+.pag-btn.active { background: var(--pln-blue); color: #fff; border-color: var(--pln-blue); }
+.pag-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Per page selector */
+.per-page-select {
+  padding: 5px 8px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: var(--white); color: var(--gray-700);
+  font-size: 12px; cursor: pointer;
+}
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+.empty-state {
+  text-align: center; padding: 48px 20px;
+  color: var(--gray-500);
+}
+.empty-state .empty-icon { font-size: 44px; margin-bottom: 12px; display: block; }
+.empty-state p { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+.empty-state small { font-size: 12px; opacity: 0.7; }
+
+/* ============================================================
+   TOAST NOTIFICATION
+   ============================================================ */
+#toastContainer {
+  position: fixed; bottom: 20px; right: 20px;
+  z-index: 10000;
+  display: flex; flex-direction: column; gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  padding: 11px 18px;
+  border-radius: var(--radius-sm);
+  color: #fff; font-size: 13px; font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  animation: slideIn 0.3s ease, fadeOut 0.4s ease 2.6s forwards;
+  pointer-events: auto;
+  max-width: 320px;
+}
+.toast.success { background: var(--green); }
+.toast.error   { background: var(--red); }
+.toast.info    { background: var(--pln-blue); }
+.toast.warning { background: var(--pln-yellow-dark); }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes fadeOut { to { opacity: 0; transform: translateX(100%); } }
+
+/* ============================================================
+   MONTH TABS
+   ============================================================ */
+.month-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.month-tab {
+  padding: 5px 12px;
+  border-radius: 99px;
+  border: 1.5px solid var(--gray-200);
+  background: var(--white); color: var(--gray-700);
+  font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all var(--transition);
+}
+.month-tab.active { background: var(--pln-yellow); border-color: var(--pln-yellow); color: #fff; }
+.month-tab:hover:not(.active) { border-color: var(--pln-yellow); color: var(--pln-yellow-dark); }
+
+/* ============================================================
+   ALERT / INFO BOXES
+   ============================================================ */
+.alert {
+  padding: 10px 14px; border-radius: var(--radius-sm);
+  font-size: 12px; margin-bottom: 12px;
+  display: flex; align-items: flex-start; gap: 8px;
+}
+.alert-info { background: #eff6ff; border-left: 3px solid var(--pln-blue-light); color: #1e40af; }
+.alert-success { background: var(--green-light); border-left: 3px solid var(--green); color: #15803d; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 768px) {
+  .logo-text { display: none; }
+  .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
+  .toolbar { flex-direction: column; }
+  .search-wrap { width: 100%; }
+  main { padding: 12px 10px 32px; }
+  .stat-value { font-size: 18px; }
+}
+@media (max-width: 480px) {
+  .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ============================================================
+   COLLAPSIBLE SECTIONS
+   ============================================================ */
+.collapsible-header {
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; user-select: none;
+}
+.collapsible-header .arrow { font-size: 12px; transition: transform var(--transition); }
+.collapsible-header.open .arrow { transform: rotate(180deg); }
+.collapsible-body { overflow: hidden; transition: max-height 0.3s ease; }
+
+/* ============================================================
+   SCROLL STYLE
+   ============================================================ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--gray-100); }
+::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gray-500); }
+
+/* ============================================================
+   PRINT
+   ============================================================ */
+@media print {
+  header, .upload-grid, .toolbar, .pagination, #toastContainer,
+  .btn-wa, .btn-toggle, #templateSection { display: none !important; }
+  .table-wrap { box-shadow: none; border: 1px solid #ccc; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     LOADING OVERLAY
+     ============================================================ -->
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <div id="loadingText">Memproses data...</div>
+</div>
+
+<!-- ============================================================
+     TOAST CONTAINER
+     ============================================================ -->
+<div id="toastContainer"></div>
+
+<!-- ============================================================
+     HEADER
+     ============================================================ -->
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">WA Tagihan <span>Listrik</span> Pro</div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" id="btnDarkMode" title="Toggle Dark Mode">🌙</button>
+      <button class="btn btn-warning btn-sm" id="btnExport" title="Export ke Excel">📥 Export</button>
+      <button class="btn btn-danger-outline btn-sm" id="btnClearAll" title="Hapus semua data">🗑️ Reset</button>
+    </div>
+  </div>
+</header>
+
+<!-- ============================================================
+     MAIN CONTENT
+     ============================================================ -->
+<main>
+
+  <!-- DASHBOARD -->
+  <div class="dashboard-grid" id="dashboardGrid">
+    <div class="stat-card blue">
+      <span class="stat-icon">👥</span>
+      <div class="stat-label">Total Pelanggan</div>
+      <div class="stat-value" id="statTotal">0</div>
+      <div class="stat-sub">pelanggan terdaftar</div>
+    </div>
+    <div class="stat-card yellow">
+      <span class="stat-icon">💰</span>
+      <div class="stat-label">Total Tagihan</div>
+      <div class="stat-value" id="statTagihan">Rp 0</div>
+      <div class="stat-sub">akumulasi tagihan</div>
+    </div>
+    <div class="stat-card green">
+      <span class="stat-icon">✅</span>
+      <div class="stat-label">Sudah Lunas</div>
+      <div class="stat-value" id="statLunas">0</div>
+      <div class="stat-sub" id="statLunasNominal">Rp 0</div>
+    </div>
+    <div class="stat-card red">
+      <span class="stat-icon">⏳</span>
+      <div class="stat-label">Belum Lunas</div>
+      <div class="stat-value" id="statBelum">0</div>
+      <div class="stat-sub" id="statBelumNominal">Rp 0</div>
+    </div>
+    <div class="stat-card purple">
+      <span class="stat-icon">📊</span>
+      <div class="stat-label">Persentase Lunas</div>
+      <div class="stat-value" id="statPersen">0%</div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+      </div>
+    </div>
+    <div class="stat-card blue">
+      <span class="stat-icon">📱</span>
+      <div class="stat-label">WA Terkirim</div>
+      <div class="stat-value" id="statWA">0</div>
+      <div class="stat-sub">pesan dikirim</div>
+    </div>
+  </div>
+
+  <!-- UPLOAD ZONA -->
+  <div class="upload-grid">
+    <!-- Upload Pelanggan -->
+    <div class="card" style="margin-bottom:0">
+      <div class="section-title">📂 Import Data Pelanggan</div>
+      <div class="upload-zone" id="uploadZone1">
+        <input type="file" id="filePelanggan" accept=".xlsx,.xls,.csv">
+        <div class="upload-icon">📊</div>
+        <div class="upload-title">Upload File Pelanggan</div>
+        <div class="upload-sub">xlsx / xls / csv — format otomatis dikenali</div>
+        <div class="upload-sub" style="margin-top:4px;font-size:10px;color:#94a3b8">Mendukung 10.000+ pelanggan</div>
+        <div id="badge1" style="display:none" class="upload-badge">✓ Data dimuat</div>
+      </div>
+      <div id="importInfo1" class="alert alert-info" style="display:none;margin-top:10px"></div>
+    </div>
+
+    <!-- Upload Pembayaran -->
+    <div class="card" style="margin-bottom:0">
+      <div class="section-title">💳 Import Data Pembayaran</div>
+      <div class="upload-zone" id="uploadZone2">
+        <input type="file" id="filePembayaran" accept=".xlsx,.xls,.csv">
+        <div class="upload-icon">💸</div>
+        <div class="upload-title">Upload File Pembayaran</div>
+        <div class="upload-sub">Cocokkan otomatis by IDPEL</div>
+        <div class="upload-sub" style="margin-top:4px;font-size:10px;color:#94a3b8">Kolom: idpel + tanggal bayar (opsional)</div>
+        <div id="badge2" style="display:none" class="upload-badge">✓ Pembayaran dimuat</div>
+      </div>
+      <div id="importInfo2" class="alert alert-success" style="display:none;margin-top:10px"></div>
+    </div>
+  </div>
+
+  <!-- INPUT MANUAL -->
+  <div class="card" id="manualSection">
+    <div class="section-title">✍️ Tambah Pelanggan Manual</div>
+    <div class="manual-grid">
+      <input class="manual-input" id="manualIdpel" placeholder="ID Pelanggan">
+      <input class="manual-input" id="manualHp" placeholder="No HP (08xx...)">
+      <input class="manual-input" id="manualNama" placeholder="Nama (opsional)">
+      <input class="manual-input" id="manualNominal" placeholder="Nominal tagihan (opsional)" inputmode="numeric">
+    </div>
+    <div class="manual-err" id="manualErr"></div>
+    <button class="btn btn-primary btn-sm" id="btnAddManual">➕ Tambah ke Daftar</button>
+    <span style="font-size:11px;color:var(--gray-500);margin-left:8px">Tidak perlu file Excel — data langsung masuk ke tabel di bawah</span>
+  </div>
+
+  <!-- TEMPLATE EDITOR (collapsible) -->
+  <div class="card" id="templateSection">
+    <div class="collapsible-header" id="templateHeader">
+      <div class="section-title" style="border:none;margin:0;padding:0">✉️ Template Pesan WhatsApp</div>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="collapsible-body" id="templateBody" style="max-height:0px">
+      <div style="margin-top:12px">
+        <textarea class="template-area" id="msgTemplate"></textarea>
+        <div class="placeholder-chips" id="placeholderChips">
+          <span style="font-size:11px;color:var(--gray-500);align-self:center">Klik untuk sisipkan:</span>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" id="btnSaveTemplate">💾 Simpan Template</button>
+          <button class="btn btn-sm" style="border:1.5px solid var(--gray-200);background:var(--white);color:var(--gray-700)" id="btnResetTemplate">↺ Reset Default</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOOLBAR (Pencarian + Filter) -->
+  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+    <div class="toolbar" style="margin-bottom:0">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Cari nama, IDPEL, No. HP...">
+      </div>
+      <div class="filter-group">
+        <button class="btn-filter active" data-filter="all">Semua</button>
+        <button class="btn-filter filter-lunas" data-filter="LUNAS">✅ Lunas</button>
+        <button class="btn-filter filter-belum" data-filter="BELUM LUNAS">⏳ Belum</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <label style="font-size:11px;color:var(--gray-500)">Per hal:</label>
+        <select class="per-page-select" id="perPageSelect">
+          <option value="25">25</option>
+          <option value="50" selected>50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+          <option value="500">500</option>
+          <option value="99999">Semua</option>
+        </select>
+      </div>
+      <button class="btn btn-success btn-sm" id="btnMarkAllLunas" style="display:none">✅ Lunas Semua</button>
+      <button class="btn btn-primary btn-sm" id="btnSendAllWA" style="display:none">📤 Kirim Semua WA</button>
+    </div>
+  </div>
+
+  <!-- INFO ROW COUNT -->
+  <div id="rowCountInfo" style="display:none;font-size:12px;color:var(--gray-500);margin-bottom:8px;padding:0 4px"></div>
+
+  <!-- TABLE AREA -->
+  <div id="tableArea">
+    <!-- Rendered by JS -->
+    <div class="empty-state">
+      <span class="empty-icon">📋</span>
+      <p>Belum ada data pelanggan</p>
+      <small>Upload file Excel/CSV atau tambahkan manual di atas untuk mulai</small>
+    </div>
+  </div>
+
+</main>
+
+<script>
+/* ============================================================
+   APP STATE
+   ============================================================ */
+/* ============================================================
+   STORE: IndexedDB (kapasitas besar) dgn API mirip localStorage
+   ============================================================ */
+const Store = {
+  db: null, cache: {},
+  open() {
+    return new Promise(res => {
+      try {
+        const r = indexedDB.open('wa_tagihan', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('kv');
+        r.onsuccess = () => { this.db = r.result; res(); };
+        r.onerror = () => res();
+      } catch (e) { res(); }
+    });
+  },
+  loadAll() {
+    return new Promise(res => {
+      if (!this.db) return res();
+      const rq = this.db.transaction('kv').objectStore('kv').openCursor();
+      rq.onsuccess = () => { const c = rq.result; if (c) { this.cache[c.key] = c.value; c.continue(); } else res(); };
+      rq.onerror = () => res();
+    });
+  },
+  getItem(k) { return k in this.cache ? this.cache[k] : null; },
+  setItem(k, v) {
+    this.cache[k] = v;
+    if (this.db) { try { this.db.transaction('kv', 'readwrite').objectStore('kv').put(v, k); } catch (e) {} }
+  },
+  removeItem(k) {
+    delete this.cache[k];
+    if (this.db) { try { this.db.transaction('kv', 'readwrite').objectStore('kv').delete(k); } catch (e) {} }
+  }
+};
+
+/* ============================================================
+   NATIVE HELPERS (Capacitor): buka WA, simpan & bagikan file
+   ============================================================ */
+const Native = {
+  isNative: !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()),
+  plugin(n) { return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins[n]; },
+  async openUrl(url) {
+    const L = this.plugin('AppLauncher');
+    if (this.isNative && L) { try { await L.openUrl({ url }); return; } catch (e) {} }
+    window.open(url, '_blank');
+  },
+  async saveAndShare(wb, fn) {
+    const FS = this.plugin('Filesystem'), SH = this.plugin('Share');
+    if (!(this.isNative && FS && SH)) { XLSX.writeFile(wb, fn); return; }
+    const b64 = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+    const r = await FS.writeFile({ path: fn, data: b64, directory: 'CACHE' });
+    await SH.share({ title: fn, url: r.uri, dialogTitle: 'Simpan / bagikan Excel' });
+  }
+};
+
+const App = {
+  // Data utama
+  customers: [],          // Array objek pelanggan lengkap
+  statusMap: {},          // { idpel: { status, tanggalBayar, waSent } }
+  template: '',
+
+  // UI state
+  currentPage: 1,
+  perPage: 50,
+  searchQuery: '',
+  filterStatus: 'all',
+  sortCol: null,
+  sortDir: 1,
+  darkMode: false,
+
+  // Kolom yang ada di file ini
+  availableCols: {
+    nama: true, idpel: true, nominal: true,
+    hp: false, alamat: false, tarif: false, daya: false,
+    manbill: false, kordinator: false, bk: false
+  }
+};
+
+/* ============================================================
+   DEFAULT TEMPLATE PESAN
+   ============================================================ */
+const DEFAULT_TEMPLATE = `Selamat Siang. Yth.Bapak/Ibu {nama}
+Berikut kami sampaikan informasi :
+
+INFORMASI TAGIHAN LISTRIK
+
+ID Pelanggan : {idpel}
+Nama         : {nama}
+Alamat       : {alamat}
+Tarif/Daya   : {tarif}/{daya} VA
+Tagihan      : {nominal}
+BK           : {bk}
+Total        : {nominal}
+Keterangan   : {status}
+
+Segera LUNASI tagihan listrik.
+Untuk  menghindari  pemutusan
+dan  denda, bayar  lebih  awal
+sebelum tgl 20 tiap bulannya....
+
+abaikan pemberitahuan ini jika sudah membayar tagihan listrik`;
+
+/* ============================================================
+   PLACEHOLDER DEFINITIONS
+   ============================================================ */
+const PLACEHOLDERS = [
+  '{nama}', '{idpel}', '{nominal}', '{nohp}', '{status}',
+  '{tanggal_bayar}', '{alamat}', '{tarif}', '{daya}', '{bk}',
+  '{manbill}', '{kordinator}'
+];
+
+/* ============================================================
+   KEYWORD MAP — pengenalan header otomatis (SANGAT LUAS)
+   ============================================================ */
+const HEADER_KEYWORDS = {
+  nama:      ['nama', 'name', 'pelanggan', 'nama pelanggan', 'customer', 'nama_pelanggan', 'nm', 'customer name', 'nama lengkap'],
+  idpel:     ['idpel', 'id pelanggan', 'id_pelanggan', 'id pelanggan listrik', 'nomer pelanggan',
+               'no pelanggan', 'nomor pelanggan', 'id', 'kode pelanggan', 'kd pelanggan',
+               'idpel listrik', 'id pln', 'nomor id', 'no id', 'id_pln'],
+  nominal:   ['nominal', 'tagihan', 'jumlah tagihan', 'total tagihan', 'rptag', 'rp tagihan',
+               'amount', 'jumlah', 'total bayar', 'total', 'harga', 'nilai tagihan',
+               'besar tagihan', 'tagihan listrik', 'billing', 'bill'],
+  hp:        ['hp', 'no hp', 'nomer hp', 'nomor hp', 'telepon', 'telp', 'telephone', 'phone',
+               'whatsapp', 'wa', 'no wa', 'nomor wa', 'no whatsapp', 'nohp', 'no_hp',
+               'handphone', 'mobile', 'no telp', 'kontak', 'contact'],
+  alamat:    ['alamat', 'address', 'alamat lengkap', 'lokasi', 'domisili', 'alamat pelanggan'],
+  tarif:     ['tarif', 'golongan', 'gol', 'tarif/daya', 'tarif daya', 'golongan tarif', 'gol tarif'],
+  daya:      ['daya', 'kwh', 'volt', 'kapasitas', 'watt', 'va'],
+  bk:        ['bk', 'rpbk', 'rpbk1', 'biaya keterlambatan', 'denda', 'penalty'],
+  manbill:   ['manbill', 'man bill', 'manajemen bill', 'petugas', 'rekanan', 'kolektor', 'manpow', 'vendor'],
+  kordinator:['kordinator', 'koordinator', 'coord', 'coordinator', 'supervisor', 'spv']
+};
+
+/* ============================================================
+   UTILITY: normalisasi teks untuk matching
+   ============================================================ */
+function norm(s) {
+  return String(s || '').toLowerCase().trim().replace(/\s+/g,' ');
+}
+
+/* ============================================================
+   UTILITY: normalisasi nomor HP
+   ============================================================ */
+function normalizeHP(raw) {
+  if (!raw) return '';
+  let s = String(raw).replace(/[\s\-\.]/g, '').replace(/^\+/, '');
+  if (s.startsWith('08')) s = '628' + s.slice(2);
+  else if (s.startsWith('8')) s = '62' + s;
+  else if (s.startsWith('628')) { /* ok */ }
+  else if (s.startsWith('62')) { /* ok */ }
+  return s;
+}
+
+/* ============================================================
+   UTILITY: format rupiah
+   ============================================================ */
+function formatRp(v) {
+  const n = parseFloat(String(v).replace(/[^0-9.]/g,'')) || 0;
+  return 'Rp ' + n.toLocaleString('id-ID');
+}
+
+/* ============================================================
+   UTILITY: tanggal sekarang
+   ============================================================ */
+function nowDate() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+/* ============================================================
+   UTILITY: detect header row & column mapping
+   ============================================================ */
+function detectHeaderAndColumns(rows) {
+  // Cari baris yang paling banyak match dengan keyword
+  let bestRow = -1, bestScore = 0, bestMap = {};
+
+  for (let i = 0; i < Math.min(rows.length, 30); i++) {
+    const row = rows[i];
+    if (!row || row.length === 0) continue;
+
+    let score = 0;
+    const map = {};
+
+    for (let j = 0; j < row.length; j++) {
+      const cell = norm(row[j]);
+      if (!cell) continue;
+
+      for (const [field, keywords] of Object.entries(HEADER_KEYWORDS)) {
+        if (!(field in map)) {
+          for (const kw of keywords) {
+            if (cell === kw || cell.includes(kw) || kw.includes(cell)) {
+              map[field] = j;
+              score++;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestRow = i;
+      bestMap = map;
+    }
+  }
+
+  // Minimal harus ada IDPEL atau NAMA
+  if (bestScore === 0 || (bestMap.idpel === undefined && bestMap.nama === undefined)) {
+    // Coba fallback: baris pertama non-kosong sebagai header
+    for (let i = 0; i < Math.min(rows.length, 10); i++) {
+      const row = rows[i];
+      if (row && row.some(c => c !== null && c !== undefined && String(c).trim() !== '')) {
+        bestRow = i;
+        // Map posisional
+        bestMap = {};
+        row.forEach((c, j) => {
+          const cn = norm(c);
+          for (const [field, keywords] of Object.entries(HEADER_KEYWORDS)) {
+            if (!(field in bestMap)) {
+              for (const kw of keywords) {
+                if (cn.includes(kw)) { bestMap[field] = j; break; }
+              }
+            }
+          }
+        });
+        break;
+      }
+    }
+  }
+
+  return { headerRow: bestRow, colMap: bestMap };
+}
+
+/* ============================================================
+   PARSE FILE: baca semua sheet sebagai array
+   ============================================================ */
+function parseFile(buffer, filename) {
+  const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  // Gunakan defval agar sel kosong tetap masuk
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+  return rows;
+}
+
+/* ============================================================
+   PROSES DATA PELANGGAN
+   ============================================================ */
+function processCustomerRows(rows) {
+  const { headerRow, colMap } = detectHeaderAndColumns(rows);
+
+  if (headerRow === -1) {
+    showToast('Format file tidak dikenali. Pastikan ada kolom IDPEL/NAMA.', 'error');
+    return [];
+  }
+
+  // Update available cols (gabungkan, jangan timpa kolom yang sudah aktif sebelumnya)
+  App.availableCols.hp        = App.availableCols.hp        || colMap.hp        !== undefined;
+  App.availableCols.alamat    = App.availableCols.alamat    || colMap.alamat     !== undefined;
+  App.availableCols.tarif     = App.availableCols.tarif     || colMap.tarif      !== undefined;
+  App.availableCols.daya      = App.availableCols.daya      || colMap.daya       !== undefined;
+  App.availableCols.bk        = App.availableCols.bk        || colMap.bk         !== undefined;
+  App.availableCols.manbill   = App.availableCols.manbill   || colMap.manbill    !== undefined;
+  App.availableCols.kordinator= App.availableCols.kordinator|| colMap.kordinator !== undefined;
+
+  const customers = [];
+  const headerRowData = rows[headerRow];
+
+  // Deteksi kolom bulan jika ada (JAN, FEB, MARET, dst)
+  const monthNames = ['jan','feb','maret','april','mei','juni','juli','agustus','september','oktober','november','desember'];
+  const monthCols = {};
+  headerRowData.forEach((c, j) => {
+    const cn = norm(c);
+    if (monthNames.includes(cn) && !monthCols[cn]) {
+      monthCols[cn] = j;
+    }
+  });
+
+  for (let i = headerRow + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length === 0) continue;
+
+    // Skip baris total/summary
+    const firstCell = norm(row[0]);
+    if (firstCell === 'total' || firstCell === 'jumlah' || firstCell === 'grand total') continue;
+    if (firstCell === 'total keseluruhan') continue;
+
+    // Ekstrak field utama
+    const idpel  = String(colMap.idpel  !== undefined ? (row[colMap.idpel]  || '') : '').trim();
+    const nama   = String(colMap.nama   !== undefined ? (row[colMap.nama]   || '') : '').trim();
+
+    // Skip baris yang idpel DAN nama kosong
+    if (!idpel && !nama) continue;
+    // Skip baris label/catatan (idpel bukan angka)
+    if (idpel && !/^\d{5,}$/.test(idpel.replace(/\s/,''))) continue;
+
+    const nominal = colMap.nominal !== undefined ? (row[colMap.nominal] || 0) : 0;
+    const hp      = colMap.hp      !== undefined ? String(row[colMap.hp] || '') : '';
+    const alamat  = colMap.alamat  !== undefined ? String(row[colMap.alamat] || '') : '';
+    const tarif   = colMap.tarif   !== undefined ? String(row[colMap.tarif] || '') : '';
+    const daya    = colMap.daya    !== undefined ? String(row[colMap.daya] || '') : '';
+    const bk      = colMap.bk      !== undefined ? (row[colMap.bk] || 0) : 0;
+    const manbill = colMap.manbill !== undefined ? String(row[colMap.manbill] || '') : '';
+    const kordinator = colMap.kordinator !== undefined ? String(row[colMap.kordinator] || '') : '';
+
+    // Parse nominal
+    let nominalNum = 0;
+    if (typeof nominal === 'number') nominalNum = nominal;
+    else nominalNum = parseFloat(String(nominal).replace(/[^0-9.]/g, '')) || 0;
+
+    let bkNum = 0;
+    if (typeof bk === 'number') bkNum = bk;
+    else bkNum = parseFloat(String(bk).replace(/[^0-9.]/g, '')) || 0;
+
+    customers.push({
+      no:         i - headerRow,
+      idpel:      idpel || `ID-${i}`,
+      nama:       nama || '-',
+      nominal:    nominalNum,
+      bk:         bkNum,
+      hp:         normalizeHP(hp),
+      alamat,
+      tarif,
+      daya,
+      manbill,
+      kordinator,
+      _rowIdx:    i
+    });
+  }
+
+  return customers;
+}
+
+/* ============================================================
+   PROSES DATA PEMBAYARAN
+   ============================================================ */
+function processPaymentRows(rows) {
+  const { headerRow, colMap } = detectHeaderAndColumns(rows);
+  const dataStart = headerRow >= 0 ? headerRow + 1 : 0;
+
+  const paymentMap = {}; // { idpel: tanggalBayar }
+
+  // Cari kolom idpel dan tanggal di payment file
+  // Bisa juga tidak ada header, langsung data
+  let idpelCol = colMap.idpel;
+  let tglCol   = null;
+
+  // Cari kolom tanggal
+  if (headerRow >= 0) {
+    const hrow = rows[headerRow];
+    hrow.forEach((c, j) => {
+      const cn = norm(c);
+      if (['tanggal', 'tgl', 'tgl bayar', 'tanggal bayar', 'date', 'payment date', 'tgl pembayaran', 'tanggal pembayaran'].includes(cn)) {
+        tglCol = j;
+      }
+    });
+  }
+
+  // Jika tidak ada header, kolom pertama = idpel, kolom kedua = tanggal
+  if (idpelCol === undefined) {
+    idpelCol = 0;
+    tglCol   = 1;
+  }
+
+  for (let i = dataStart; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length === 0) continue;
+    const id = String(row[idpelCol] || '').trim();
+    if (!id || !/\d{5,}/.test(id)) continue;
+    const tgl = tglCol !== null ? String(row[tglCol] || '').trim() : '';
+    paymentMap[id] = tgl || nowDate();
+  }
+
+  return paymentMap;
+}
+
+/* ============================================================
+   LOAD DATA FROM FILE
+   ============================================================ */
+function handleFilePelanggan(file) {
+  if (!file) return;
+  showLoading('Membaca file... ' + file.name);
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const buffer = new Uint8Array(e.target.result);
+      let rows;
+
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        // CSV handling
+        const text = new TextDecoder('utf-8').decode(buffer);
+        const lines = text.split('\n').map(l => l.split(/[,;|	]/));
+        rows = lines;
+      } else {
+        rows = parseFile(buffer, file.name);
+      }
+
+      const customers = processCustomerRows(rows);
+      if (customers.length === 0) {
+        showToast('Tidak ada data pelanggan ditemukan dalam file!', 'error');
+        hideLoading();
+        return;
+      }
+
+      // Gabungkan ke data yang sudah ada (termasuk hasil input manual), skip IDPEL duplikat
+      let added = 0, skipped = 0;
+      const seen = new Set(App.customers.map(x => x.idpel));
+      customers.forEach(c => {
+        if (seen.has(c.idpel)) { skipped++; return; }
+        seen.add(c.idpel);
+        c.no = App.customers.length + 1;
+        App.customers.push(c);
+        added++;
+      });
+      App.currentPage = 1;
+      saveManualEntries();
+
+      // Restore status dari localStorage
+      restoreStatus();
+      updateDashboard();
+      renderTable();
+
+      document.getElementById('badge1').style.display = 'inline-block';
+      document.getElementById('importInfo1').style.display = 'flex';
+      document.getElementById('importInfo1').textContent = `✅ ${added} pelanggan baru ditambahkan dari "${file.name}"` + (skipped ? ` (${skipped} IDPEL duplikat dilewati)` : '') + ` — total sekarang ${App.customers.length}`;
+      document.getElementById('btnMarkAllLunas').style.display = '';
+      document.getElementById('btnSendAllWA').style.display = '';
+
+      showToast(`${added} pelanggan baru berhasil diimport!`, 'success');
+    } catch(err) {
+      console.error(err);
+      showToast('Gagal membaca file: ' + err.message, 'error');
+    }
+    hideLoading();
+  };
+  reader.onerror = () => { showToast('Gagal membaca file!', 'error'); hideLoading(); };
+  reader.readAsArrayBuffer(file);
+}
+
+function handleFilePembayaran(file) {
+  if (!file) return;
+  if (App.customers.length === 0) {
+    showToast('Upload data pelanggan terlebih dahulu!', 'warning');
+    return;
+  }
+  showLoading('Memproses data pembayaran...');
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const buffer = new Uint8Array(e.target.result);
+      let rows;
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        const text = new TextDecoder('utf-8').decode(buffer);
+        rows = text.split('\n').map(l => l.split(/[,;|	]/));
+      } else {
+        rows = parseFile(buffer, file.name);
+      }
+
+      const paymentMap = processPaymentRows(rows);
+      let matched = 0;
+
+      App.customers.forEach(c => {
+        if (paymentMap[c.idpel] !== undefined) {
+          if (!App.statusMap[c.idpel]) App.statusMap[c.idpel] = {};
+          App.statusMap[c.idpel].status = 'LUNAS';
+          App.statusMap[c.idpel].tanggalBayar = paymentMap[c.idpel] || nowDate();
+          matched++;
+        }
+      });
+
+      saveStatus();
+      updateDashboard();
+      renderTable();
+
+      document.getElementById('badge2').style.display = 'inline-block';
+      document.getElementById('importInfo2').style.display = 'flex';
+      document.getElementById('importInfo2').textContent = `💳 ${matched} pelanggan ditandai LUNAS dari ${Object.keys(paymentMap).length} data pembayaran`;
+
+      showToast(`${matched} pelanggan diupdate ke LUNAS!`, 'success');
+    } catch(err) {
+      console.error(err);
+      showToast('Gagal membaca file pembayaran: ' + err.message, 'error');
+    }
+    hideLoading();
+  };
+  reader.onerror = () => { showToast('Gagal membaca file!', 'error'); hideLoading(); };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ============================================================
+   INPUT MANUAL (tanpa import file)
+   ============================================================ */
+function addManualCustomer() {
+  const idpelEl  = document.getElementById('manualIdpel');
+  const hpEl     = document.getElementById('manualHp');
+  const namaEl   = document.getElementById('manualNama');
+  const nominalEl= document.getElementById('manualNominal');
+  const errEl    = document.getElementById('manualErr');
+
+  const idpel   = idpelEl.value.trim();
+  const hpRaw   = hpEl.value.trim();
+  const nama    = namaEl.value.trim();
+  const nominal = nominalEl.value.trim();
+
+  errEl.textContent = '';
+
+  if (!idpel || !hpRaw) {
+    errEl.textContent = 'ID Pelanggan dan No HP wajib diisi.';
+    return;
+  }
+  if (App.customers.some(c => c.idpel === idpel)) {
+    errEl.textContent = 'ID Pelanggan ini sudah ada di daftar.';
+    return;
+  }
+
+  const nominalNum = parseFloat(String(nominal).replace(/[^0-9.]/g,'')) || 0;
+
+  const customer = {
+    no: App.customers.length + 1,
+    idpel,
+    nama: nama || '-',
+    nominal: nominalNum,
+    bk: 0,
+    hp: normalizeHP(hpRaw),
+    alamat: '', tarif: '', daya: '', manbill: '', kordinator: '',
+    _rowIdx: -1,
+    _source: 'manual'
+  };
+
+  App.customers.push(customer);
+  App.availableCols.hp = true;
+  saveManualEntries();
+  restoreStatus();
+
+  idpelEl.value = ''; hpEl.value = ''; namaEl.value = ''; nominalEl.value = '';
+  idpelEl.focus();
+
+  updateDashboard();
+  renderTable();
+  document.getElementById('btnMarkAllLunas').style.display = '';
+  document.getElementById('btnSendAllWA').style.display = '';
+  showToast(`Pelanggan ${customer.nama !== '-' ? customer.nama : idpel} ditambahkan!`, 'success');
+}
+
+function saveManualEntries() {
+  try {
+    Store.setItem('wa_tagihan_customers', JSON.stringify(App.customers));
+    Store.setItem('wa_tagihan_cols', JSON.stringify(App.availableCols));
+  } catch (e) {}
+}
+function loadManualEntries() {
+  try {
+    const saved = Store.getItem('wa_tagihan_customers');
+    if (!saved) return;
+    App.customers = JSON.parse(saved);
+    App.customers.forEach((c, i) => { c.no = i + 1; });
+    const cols = Store.getItem('wa_tagihan_cols');
+    if (cols) Object.assign(App.availableCols, JSON.parse(cols));
+  } catch (e) {}
+}
+
+/* ============================================================
+   STATUS MANAGEMENT
+   ============================================================ */
+function getStatus(idpel) {
+  return (App.statusMap[idpel] && App.statusMap[idpel].status) || 'BELUM LUNAS';
+}
+function getTanggal(idpel) {
+  return (App.statusMap[idpel] && App.statusMap[idpel].tanggalBayar) || '';
+}
+function getWASent(idpel) {
+  return (App.statusMap[idpel] && App.statusMap[idpel].waSent) || false;
+}
+
+function toggleStatus(idpel) {
+  if (!App.statusMap[idpel]) App.statusMap[idpel] = {};
+  if (App.statusMap[idpel].status === 'LUNAS') {
+    App.statusMap[idpel].status = 'BELUM LUNAS';
+    App.statusMap[idpel].tanggalBayar = '';
+  } else {
+    App.statusMap[idpel].status = 'LUNAS';
+    App.statusMap[idpel].tanggalBayar = nowDate();
+  }
+  saveStatus();
+  updateDashboard();
+  renderTable();
+}
+
+function markWASent(idpel) {
+  if (!App.statusMap[idpel]) App.statusMap[idpel] = {};
+  App.statusMap[idpel].waSent = true;
+  saveStatus();
+}
+
+/* ============================================================
+   LOCAL STORAGE
+   ============================================================ */
+function saveStatus() {
+  try {
+    Store.setItem('wa_tagihan_status', JSON.stringify(App.statusMap));
+  } catch(e) {
+    // Storage penuh, tidak masalah
+  }
+}
+function restoreStatus() {
+  try {
+    const saved = Store.getItem('wa_tagihan_status');
+    if (saved) App.statusMap = JSON.parse(saved);
+  } catch(e) {}
+}
+function saveTemplate() {
+  try {
+    Store.setItem('wa_tagihan_template', App.template);
+  } catch(e) {}
+}
+function loadTemplate() {
+  try {
+    const t = Store.getItem('wa_tagihan_template');
+    if (t) App.template = t;
+    else App.template = DEFAULT_TEMPLATE;
+  } catch(e) {
+    App.template = DEFAULT_TEMPLATE;
+  }
+}
+function saveDarkMode() {
+  Store.setItem('wa_tagihan_dark', App.darkMode ? '1' : '0');
+}
+function loadDarkMode() {
+  return Store.getItem('wa_tagihan_dark') === '1';
+}
+
+/* ============================================================
+   DASHBOARD UPDATE
+   ============================================================ */
+function updateDashboard() {
+  const all   = App.customers;
+  const total = all.length;
+  let lunas = 0, belum = 0;
+  let sumTotal = 0, sumLunas = 0, sumBelum = 0;
+  let waSent = 0;
+
+  all.forEach(c => {
+    sumTotal += c.nominal;
+    const st = getStatus(c.idpel);
+    if (st === 'LUNAS') { lunas++; sumLunas += c.nominal; }
+    else { belum++; sumBelum += c.nominal; }
+    if (getWASent(c.idpel)) waSent++;
+  });
+
+  const persen = total > 0 ? ((lunas / total) * 100).toFixed(1) : 0;
+
+  document.getElementById('statTotal').textContent   = total.toLocaleString('id-ID');
+  document.getElementById('statTagihan').textContent = formatRp(sumTotal);
+  document.getElementById('statLunas').textContent   = lunas.toLocaleString('id-ID');
+  document.getElementById('statBelum').textContent   = belum.toLocaleString('id-ID');
+  document.getElementById('statPersen').textContent  = persen + '%';
+  document.getElementById('statWA').textContent      = waSent.toLocaleString('id-ID');
+  document.getElementById('statLunasNominal').textContent  = formatRp(sumLunas);
+  document.getElementById('statBelumNominal').textContent  = formatRp(sumBelum);
+  document.getElementById('progressBar').style.width = persen + '%';
+}
+
+/* ============================================================
+   FILTER & SEARCH
+   ============================================================ */
+function getFilteredCustomers() {
+  const q = App.searchQuery.toLowerCase();
+  const f = App.filterStatus;
+
+  return App.customers.filter(c => {
+    // Filter status
+    if (f !== 'all' && getStatus(c.idpel) !== f) return false;
+    // Search
+    if (q) {
+      const inNama  = c.nama.toLowerCase().includes(q);
+      const inIdpel = c.idpel.includes(q);
+      const inHP    = c.hp.includes(q);
+      const inAlamat= c.alamat.toLowerCase().includes(q);
+      if (!inNama && !inIdpel && !inHP && !inAlamat) return false;
+    }
+    return true;
+  });
+}
+
+/* ============================================================
+   SORT
+   ============================================================ */
+function sortCustomers(list) {
+  if (!App.sortCol) return list;
+  return [...list].sort((a, b) => {
+    let va = a[App.sortCol] || '';
+    let vb = b[App.sortCol] || '';
+    if (typeof va === 'number') return (va - vb) * App.sortDir;
+    return String(va).localeCompare(String(vb)) * App.sortDir;
+  });
+}
+
+/* ============================================================
+   RENDER TABLE
+   ============================================================ */
+function renderTable() {
+  const container = document.getElementById('tableArea');
+
+  if (App.customers.length === 0) {
+    container.innerHTML = `<div class="empty-state">
+      <span class="empty-icon">📋</span>
+      <p>Belum ada data pelanggan</p>
+      <small>Upload file Excel/CSV atau tambahkan manual di atas untuk mulai</small>
+    </div>`;
+    document.getElementById('rowCountInfo').style.display = 'none';
+    return;
+  }
+
+  let filtered = getFilteredCustomers();
+  filtered = sortCustomers(filtered);
+
+  const total = filtered.length;
+  const perPage = parseInt(App.perPage);
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  if (App.currentPage > totalPages) App.currentPage = totalPages;
+  const start = (App.currentPage - 1) * perPage;
+  const end   = Math.min(start + perPage, total);
+  const page  = filtered.slice(start, end);
+
+  // Row count info
+  const infoEl = document.getElementById('rowCountInfo');
+  infoEl.style.display = '';
+  infoEl.textContent = `Menampilkan ${start+1}–${end} dari ${total} pelanggan (total ${App.customers.length})`;
+
+  // Kolom yang ditampilkan
+  const showHP      = App.availableCols.hp;
+  const showAlamat  = App.availableCols.alamat;
+  const showTarif   = App.availableCols.tarif;
+  const showDaya    = App.availableCols.daya;
+  const showManbill = App.availableCols.manbill;
+
+  // Header columns
+  const sortIcon = (col) => {
+    if (App.sortCol !== col) return '<span class="sort-icon">↕</span>';
+    return `<span class="sort-icon">${App.sortDir===1?'↑':'↓'}</span>`;
+  };
+
+  let headerHTML = `
+    <th onclick="setSort('no')" style="width:42px"># ${sortIcon('no')}</th>
+    <th onclick="setSort('idpel')">IDPEL ${sortIcon('idpel')}</th>
+    <th onclick="setSort('nama')">Nama Pelanggan ${sortIcon('nama')}</th>`;
+  if (showAlamat) headerHTML += `<th onclick="setSort('alamat')">Alamat ${sortIcon('alamat')}</th>`;
+  if (showTarif)  headerHTML += `<th>Tarif</th>`;
+  if (showDaya)   headerHTML += `<th>Daya</th>`;
+  headerHTML += `<th onclick="setSort('nominal')" style="text-align:right">Tagihan ${sortIcon('nominal')}</th>`;
+  if (showHP) headerHTML += `<th>No. HP</th>`;
+  if (showManbill) headerHTML += `<th>Man Bill</th>`;
+  headerHTML += `
+    <th onclick="setSort('_status')">Status ${sortIcon('_status')}</th>
+    <th>Tgl Bayar</th>
+    <th style="text-align:center">Aksi</th>`;
+
+  // Rows
+  let rowsHTML = '';
+  page.forEach(c => {
+    const status   = getStatus(c.idpel);
+    const tgl      = getTanggal(c.idpel);
+    const waSent   = getWASent(c.idpel);
+    const isLunas  = status === 'LUNAS';
+
+    const rowClass = isLunas ? 'row-lunas' : waSent ? 'row-wa-sent' : '';
+
+    let cells = `
+      <td class="no-wrap" style="color:var(--gray-500);font-size:11px">${c.no}</td>
+      <td class="no-wrap" style="font-family:monospace;font-size:12px">${escHTML(c.idpel)}</td>
+      <td style="min-width:160px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHTML(c.nama)}">${escHTML(c.nama)}${c._source==='manual' ? ' <span class="manual-badge">manual</span>' : ''}</td>`;
+    if (showAlamat) cells += `<td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px" title="${escHTML(c.alamat)}">${escHTML(c.alamat)}</td>`;
+    if (showTarif)  cells += `<td class="no-wrap" style="font-size:11px">${escHTML(c.tarif)}</td>`;
+    if (showDaya)   cells += `<td class="no-wrap" style="font-size:11px">${c.daya ? c.daya+' VA' : ''}</td>`;
+    cells += `<td class="no-wrap" style="text-align:right;font-weight:600">${formatRp(c.nominal)}</td>`;
+    if (showHP) cells += `<td class="no-wrap" style="font-size:11px">${escHTML(c.hp) || '<span style="color:var(--gray-300)">—</span>'}</td>`;
+    if (showManbill) cells += `<td style="font-size:11px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHTML(c.manbill)}</td>`;
+
+    cells += `
+      <td class="no-wrap">
+        <span class="badge ${isLunas ? 'badge-lunas':'badge-belum'}">
+          ${isLunas ? '✅':'⏳'} ${status}
+        </span>
+      </td>
+      <td class="no-wrap" style="font-size:11px;color:var(--gray-500)">${escHTML(tgl) || '—'}</td>
+      <td class="no-wrap">
+        <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+          <button class="btn-toggle ${isLunas?'lunas':'belum'}" onclick="toggleStatus('${escHTML(c.idpel)}')">
+            ${isLunas ? '🔄 Batal Lunas' : '✅ Tandai Lunas'}
+          </button>`;
+
+    if (c.hp) {
+      cells += `<button class="btn-wa btn" onclick="sendWA('${escHTML(c.idpel)}')">
+        ${waSent ? '✓✓' : '📱'} WA
+      </button>`;
+    } else {
+      cells += `<button class="btn btn-sm" style="background:var(--gray-100);color:var(--gray-500);border:1px solid var(--gray-200);cursor:default" disabled title="Tidak ada No. HP">📵</button>`;
+    }
+
+    cells += `</div>
+      </td>`;
+
+    rowsHTML += `<tr class="${rowClass}" data-idpel="${escHTML(c.idpel)}">${cells}</tr>`;
+  });
+
+  // Empty filtered
+  if (page.length === 0) {
+    rowsHTML = `<tr><td colspan="20" style="text-align:center;padding:32px;color:var(--gray-500)">
+      🔍 Tidak ada data yang cocok dengan pencarian/filter
+    </td></tr>`;
+  }
+
+  container.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead><tr>${headerHTML}</tr></thead>
+        <tbody>${rowsHTML}</tbody>
+      </table>
+      ${buildPagination(total, totalPages)}
+    </div>`;
+}
+
+function buildPagination(total, totalPages) {
+  const cur = App.currentPage;
+  let btns = '';
+
+  // Prev
+  btns += `<button class="pag-btn" onclick="goPage(${cur-1})" ${cur<=1?'disabled':''}>‹</button>`;
+
+  // Pages
+  const range = [];
+  if (totalPages <= 7) {
+    for (let i=1;i<=totalPages;i++) range.push(i);
+  } else {
+    range.push(1);
+    if (cur > 3) range.push('...');
+    for (let i=Math.max(2,cur-1);i<=Math.min(totalPages-1,cur+1);i++) range.push(i);
+    if (cur < totalPages-2) range.push('...');
+    range.push(totalPages);
+  }
+
+  range.forEach(p => {
+    if (p === '...') btns += `<span style="padding:0 4px;align-self:center;color:var(--gray-500)">…</span>`;
+    else btns += `<button class="pag-btn ${p===cur?'active':''}" onclick="goPage(${p})">${p}</button>`;
+  });
+
+  // Next
+  btns += `<button class="pag-btn" onclick="goPage(${cur+1})" ${cur>=totalPages?'disabled':''}>›</button>`;
+
+  return `<div class="pagination">
+    <span class="pag-info">${total} data • Halaman ${cur}/${totalPages}</span>
+    <div class="pag-btns">${btns}</div>
+  </div>`;
+}
+
+function goPage(p) {
+  const filtered = getFilteredCustomers();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / App.perPage));
+  App.currentPage = Math.max(1, Math.min(p, totalPages));
+  renderTable();
+  window.scrollTo({ top: document.getElementById('tableArea').offsetTop - 70, behavior: 'smooth' });
+}
+
+function setSort(col) {
+  if (App.sortCol === col) App.sortDir *= -1;
+  else { App.sortCol = col; App.sortDir = 1; }
+  renderTable();
+}
+
+/* ============================================================
+   SEND WHATSAPP
+   ============================================================ */
+function sendWA(idpel) {
+  const c = App.customers.find(x => x.idpel === idpel);
+  if (!c) return;
+  if (!c.hp) { showToast('Nomor HP tidak tersedia!', 'warning'); return; }
+
+  const status   = getStatus(c.idpel);
+  const tgl      = getTanggal(c.idpel);
+
+  let msg = App.template;
+  msg = msg.replace(/\{nama\}/gi, c.nama);
+  msg = msg.replace(/\{idpel\}/gi, c.idpel);
+  msg = msg.replace(/\{nominal\}/gi, formatRp(c.nominal));
+  msg = msg.replace(/\{nohp\}/gi, c.hp);
+  msg = msg.replace(/\{status\}/gi, status);
+  msg = msg.replace(/\{tanggal_bayar\}/gi, tgl || '-');
+  msg = msg.replace(/\{alamat\}/gi, c.alamat || '-');
+  msg = msg.replace(/\{tarif\}/gi, c.tarif || '-');
+  msg = msg.replace(/\{daya\}/gi, c.daya ? c.daya+' VA' : '-');
+  msg = msg.replace(/\{bk\}/gi, formatRp(c.bk));
+  msg = msg.replace(/\{manbill\}/gi, c.manbill || '-');
+  msg = msg.replace(/\{kordinator\}/gi, c.kordinator || '-');
+
+  const url = `https://wa.me/${c.hp}?text=${encodeURIComponent(msg)}`;
+  Native.openUrl(url);
+
+  markWASent(c.idpel);
+  updateDashboard();
+  renderTable();
+  showToast(`WA dikirim ke ${c.nama}`, 'success');
+}
+
+/* ============================================================
+   EXPORT EXCEL
+   ============================================================ */
+function exportExcel() {
+  if (App.customers.length === 0) {
+    showToast('Tidak ada data untuk diekspor!', 'warning'); return;
+  }
+  showLoading('Membuat file Excel...');
+
+  const data = [
+    ['No','IDPEL','Nama','Alamat','Tarif','Daya','Nominal','BK','No HP','Status Pembayaran','Tanggal Bayar','Status WA','Man Bill','Kordinator']
+  ];
+
+  App.customers.forEach((c, i) => {
+    data.push([
+      i+1,
+      c.idpel,
+      c.nama,
+      c.alamat,
+      c.tarif,
+      c.daya,
+      c.nominal,
+      c.bk,
+      c.hp,
+      getStatus(c.idpel),
+      getTanggal(c.idpel),
+      getWASent(c.idpel) ? 'TERKIRIM' : 'BELUM',
+      c.manbill,
+      c.kordinator
+    ]);
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(data);
+
+  // Style header
+  ws['!cols'] = [
+    {wch:4},{wch:16},{wch:28},{wch:30},{wch:6},{wch:6},
+    {wch:14},{wch:10},{wch:16},{wch:14},{wch:20},{wch:10},{wch:24},{wch:22}
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Tagihan Listrik');
+  const now = new Date();
+  const fn = `Tagihan_Listrik_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.xlsx`;
+  Native.saveAndShare(wb, fn)
+    .then(() => showToast(`Export berhasil: ${fn}`, 'success'))
+    .catch(err => showToast('Export gagal: ' + (err && err.message || err), 'error'))
+    .finally(hideLoading);
+}
+
+/* ============================================================
+   MARK ALL LUNAS
+   ============================================================ */
+function markAllLunas() {
+  const filtered = getFilteredCustomers();
+  if (filtered.length === 0) return;
+  if (!confirm(`Tandai ${filtered.length} pelanggan (sesuai filter aktif) sebagai LUNAS?`)) return;
+  const tgl = nowDate();
+  filtered.forEach(c => {
+    if (!App.statusMap[c.idpel]) App.statusMap[c.idpel] = {};
+    App.statusMap[c.idpel].status = 'LUNAS';
+    App.statusMap[c.idpel].tanggalBayar = tgl;
+  });
+  saveStatus();
+  updateDashboard();
+  renderTable();
+  showToast(`${filtered.length} pelanggan ditandai LUNAS!`, 'success');
+}
+
+/* ============================================================
+   SEND ALL WA (batch)
+   ============================================================ */
+function sendAllWA() {
+  const list = getFilteredCustomers().filter(c => c.hp);
+  if (list.length === 0) { showToast('Tidak ada pelanggan dengan No. HP!', 'warning'); return; }
+  if (!confirm(`Mulai antrian kirim WA ke ${list.length} pelanggan? Setiap ketuk membuka satu chat WhatsApp.`)) return;
+  App.queue = list.map(c => c.idpel);
+  App.queuePos = 0;
+  renderQueueBar();
+}
+function renderQueueBar() {
+  let bar = document.getElementById('queueBar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'queueBar';
+    bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:500;background:#003d82;color:#fff;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;align-items:center;box-shadow:0 -4px 12px rgba(0,0,0,.25)';
+    document.body.appendChild(bar);
+  }
+  if (!App.queue || App.queuePos >= App.queue.length) {
+    bar.remove(); App.queue = null;
+    showToast('Antrian WA selesai!', 'success'); return;
+  }
+  const c = App.customers.find(x => x.idpel === App.queue[App.queuePos]);
+  bar.innerHTML = '<div style="flex:1;font-size:13px;line-height:1.3"><b>' + (App.queuePos + 1) + '/' + App.queue.length + '</b> &middot; ' + escHTML(c ? c.nama : '') + '</div>'
+    + '<button id="qSend" style="background:#25d366;color:#fff;border:0;border-radius:8px;padding:10px 14px;font-weight:700">Kirim WA</button>'
+    + '<button id="qSkip" style="background:rgba(255,255,255,.2);color:#fff;border:0;border-radius:8px;padding:10px 12px">Lewati</button>'
+    + '<button id="qStop" style="background:rgba(255,255,255,.2);color:#fff;border:0;border-radius:8px;padding:10px 12px">Stop</button>';
+  document.getElementById('qSend').onclick = () => { if (c) sendWA(c.idpel); App.queuePos++; renderQueueBar(); };
+  document.getElementById('qSkip').onclick = () => { App.queuePos++; renderQueueBar(); };
+  document.getElementById('qStop').onclick = () => { App.queue = null; bar.remove(); };
+}
+
+/* ============================================================
+   CLEAR ALL
+   ============================================================ */
+function clearAll() {
+  if (!confirm('Hapus semua data? Status yang tersimpan di LocalStorage juga akan dihapus.')) return;
+  App.customers = [];
+  App.statusMap = {};
+  App.searchQuery = '';
+  App.filterStatus = 'all';
+  App.currentPage = 1;
+  saveStatus();
+  Store.removeItem('wa_tagihan_customers'); Store.removeItem('wa_tagihan_cols');
+  updateDashboard();
+  renderTable();
+  document.getElementById('badge1').style.display = 'none';
+  document.getElementById('badge2').style.display = 'none';
+  document.getElementById('importInfo1').style.display = 'none';
+  document.getElementById('importInfo2').style.display = 'none';
+  document.getElementById('filePelanggan').value = '';
+  document.getElementById('filePembayaran').value = '';
+  document.getElementById('btnMarkAllLunas').style.display = 'none';
+  document.getElementById('btnSendAllWA').style.display = 'none';
+  showToast('Data direset!', 'info');
+}
+
+/* ============================================================
+   DARK MODE
+   ============================================================ */
+function toggleDarkMode() {
+  App.darkMode = !App.darkMode;
+  document.documentElement.setAttribute('data-theme', App.darkMode ? 'dark' : '');
+  document.getElementById('btnDarkMode').textContent = App.darkMode ? '☀️' : '🌙';
+  saveDarkMode();
+}
+
+/* ============================================================
+   TEMPLATE EDITOR
+   ============================================================ */
+function initTemplate() {
+  const ta = document.getElementById('msgTemplate');
+  ta.value = App.template;
+
+  // Build placeholder chips
+  const chips = document.getElementById('placeholderChips');
+  PLACEHOLDERS.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'chip';
+    btn.textContent = p;
+    btn.onclick = () => {
+      const pos = ta.selectionStart;
+      const before = ta.value.slice(0, pos);
+      const after  = ta.value.slice(ta.selectionEnd);
+      ta.value = before + p + after;
+      ta.selectionStart = ta.selectionEnd = pos + p.length;
+      ta.focus();
+    };
+    chips.appendChild(btn);
+  });
+
+  // Auto-save on change
+  ta.addEventListener('input', () => { App.template = ta.value; });
+}
+
+/* ============================================================
+   COLLAPSIBLE
+   ============================================================ */
+function initCollapsible() {
+  const header = document.getElementById('templateHeader');
+  const body   = document.getElementById('templateBody');
+  header.addEventListener('click', () => {
+    const isOpen = header.classList.contains('open');
+    if (isOpen) {
+      body.style.maxHeight = '0px';
+      header.classList.remove('open');
+    } else {
+      body.style.maxHeight = body.scrollHeight + 'px';
+      header.classList.add('open');
+      // Recalculate after content
+      setTimeout(() => { body.style.maxHeight = body.scrollHeight + 'px'; }, 100);
+    }
+  });
+}
+
+/* ============================================================
+   DRAG & DROP UPLOAD
+   ============================================================ */
+function initDragDrop() {
+  ['uploadZone1','uploadZone2'].forEach((zoneId, idx) => {
+    const zone = document.getElementById(zoneId);
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        if (idx === 0) handleFilePelanggan(file);
+        else handleFilePembayaran(file);
+      }
+    });
+  });
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+function showToast(msg, type='info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+/* ============================================================
+   LOADING OVERLAY
+   ============================================================ */
+function showLoading(msg='Memproses...') {
+  document.getElementById('loadingText').textContent = msg;
+  document.getElementById('loadingOverlay').classList.add('active');
+}
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.remove('active');
+}
+
+/* ============================================================
+   HTML ESCAPE
+   ============================================================ */
+function escHTML(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+/* ============================================================
+   EVENT BINDING
+   ============================================================ */
+function bindEvents() {
+  // File upload
+  document.getElementById('filePelanggan').addEventListener('change', e => {
+    if (e.target.files[0]) handleFilePelanggan(e.target.files[0]);
+  });
+  document.getElementById('filePembayaran').addEventListener('change', e => {
+    if (e.target.files[0]) handleFilePembayaran(e.target.files[0]);
+  });
+
+  // Input manual
+  document.getElementById('btnAddManual').addEventListener('click', addManualCustomer);
+  ['manualIdpel','manualHp','manualNama','manualNominal'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); addManualCustomer(); }
+    });
+  });
+
+  // Search
+  document.getElementById('searchInput').addEventListener('input', e => {
+    App.searchQuery = e.target.value;
+    App.currentPage = 1;
+    renderTable();
+  });
+
+  // Filter buttons
+  document.querySelectorAll('.btn-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      App.filterStatus = btn.dataset.filter;
+      App.currentPage = 1;
+      renderTable();
+    });
+  });
+
+  // Per page
+  document.getElementById('perPageSelect').addEventListener('change', e => {
+    App.perPage = parseInt(e.target.value);
+    App.currentPage = 1;
+    renderTable();
+  });
+
+  // Toolbar buttons
+  document.getElementById('btnExport').addEventListener('click', exportExcel);
+  document.getElementById('btnClearAll').addEventListener('click', clearAll);
+  document.getElementById('btnDarkMode').addEventListener('click', toggleDarkMode);
+  document.getElementById('btnMarkAllLunas').addEventListener('click', markAllLunas);
+  document.getElementById('btnSendAllWA').addEventListener('click', sendAllWA);
+
+  // Template
+  document.getElementById('btnSaveTemplate').addEventListener('click', () => {
+    App.template = document.getElementById('msgTemplate').value;
+    saveTemplate();
+    showToast('Template disimpan!', 'success');
+  });
+  document.getElementById('btnResetTemplate').addEventListener('click', () => {
+    App.template = DEFAULT_TEMPLATE;
+    document.getElementById('msgTemplate').value = DEFAULT_TEMPLATE;
+    saveTemplate();
+    showToast('Template direset ke default!', 'info');
+  });
+}
+
+/* ============================================================
+   INIT APP
+   ============================================================ */
+function init() {
+  // Dark mode
+  App.darkMode = loadDarkMode();
+  if (App.darkMode) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.getElementById('btnDarkMode').textContent = '☀️';
+  }
+
+  // Template
+  loadTemplate();
+  restoreStatus();
+  loadManualEntries();
+
+  // Init components
+  initTemplate();
+  initCollapsible();
+  initDragDrop();
+  bindEvents();
+  updateDashboard();
+  renderTable();
+  if (App.customers.length) {
+    document.getElementById('btnMarkAllLunas').style.display = '';
+    document.getElementById('btnSendAllWA').style.display = '';
+  }
+
+  console.log('✅ WA Tagihan Listrik Pro ready');
+}
+
+// Run init when DOM is ready
+Store.open().then(() => Store.loadAll()).then(() => {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+});
+</script>
+</body>
+</html>
